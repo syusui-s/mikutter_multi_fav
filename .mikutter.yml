@@ -1,0 +1,11 @@
+---
+slug: :mikutter_multi_fav
+depends:
+  mikutter: 3.4.3
+  plugin:
+  - gtk
+  - command
+version: '1.0'
+author: Shusui Moyatani
+name: mikutter_multi_fav（マルチふぁぼ）
+description: Favorite/Like a tweet from multiple accounts
