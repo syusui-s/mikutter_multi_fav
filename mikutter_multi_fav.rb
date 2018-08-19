@@ -1,42 +1,44 @@
 Plugin.create :mikutter_multi_fav do
-  def service_select_dialog
-    dialog = Gtk::Dialog.new(
-      nil,
-      nil,
-      Gtk::Dialog::DESTROY_WITH_PARENT,
-      ['Favorite', Gtk::Dialog::RESPONSE_OK],
-      ['Favorite', Gtk::Dialog::RESPONSE_CANCEL]
-    )
+  # Worldを選択するダイアログを表示し、
+  # 選択されたWorldの配列を Deferred で返す
+  def select_worlds_dialog(worlds)
+    worlds = worlds
+      .map { |w| [ w.slug, w ] }
+      .to_h
 
-    service_buttons = Service.services.map do |svc|
-      button = Gtk::CheckButton.new("#{svc.idname}")
-      dialog.vbox.pack_start(button, false, false, 5)
-      { service: svc, button: button }
-    end
-
-    dialog.show_all
-
-    dialog.run {|res_id|
-      services = if res_id == Gtk::Dialog::RESPONSE_OK
-         service_buttons.map{|svc_btn| svc_btn[:button].active? ? svc_btn[:service] : nil }.compact
-      else [] end
-
-      dialog.destroy
-      return services
+    dialog('マルチふぁぼ') {
+      worlds.each { |world_key, world|
+        label = "#{world.title} @ #{world.class.slug}"
+        boolean(label, world_key)
+      }
+    }.next { |res|
+      worlds
+        .select { |key, _| res[key] }
+        .values
+    }.trap { |ex|
+      case ex
+      when Plugin::Gtk::DialogWindow::Response::Cancel
+        [] # 空の配列を返す
+      else
+        raise ex
+      end
     }
   end
 
-  command(:multi_fav,
+  command(
+    :multi_fav,
     name: 'マルチふぁぼ',
     condition: Plugin::Command[:HasMessage],
     visible: true,
     role: :timeline
   ) do |opt|
-      services = service_select_dialog
+    Deferred.new {
+      worlds, = Plugin.filtering(:worlds, [])
+      selected_worlds = +select_worlds_dialog(worlds)
 
-      services.each do |svc| opt.messages.each do |msg|
-          svc.favorite(msg, true)
-      end end
+      selected_worlds.each { |world|
+        opt.messages.map { |msg|
+          favorite(world, msg) } }
+    }
   end
-
 end
